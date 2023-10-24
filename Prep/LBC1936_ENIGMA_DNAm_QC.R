@@ -1,3 +1,4 @@
+
 setwd("/CCACE_Shared/EleanorC/CorticalEWAS/Data")
 
 #############################
@@ -293,7 +294,7 @@ save(beta, file="/CCACE_Shared/EleanorC/CorticalEWAS/Data/Output/Beta_Quantile.r
 ## Generate PCA to control for unknown structure ####
 
 #library(corpcor)
-#ss <- fast.svd(beta,tol=0) # this may take a while
+ss <- fast.svd(beta,tol=0) # this may take a while
 save(ss,file="/CCACE_Shared/EleanorC/CorticalEWAS/Data/Output/fast_svd.rda")  #saves the output as a new file to be used as covariate in downstream analyses
 
 
@@ -331,19 +332,22 @@ plot(mds[,1],col=as.numeric(as.factor(pd[,"array"]))+1,xlab="",ylab="First Princ
 dev.off()
 
 
+###########################################################
+
 ##Section 1: methylation data QC (skip this step if you have already QC’ed you methylation data following our ENIGMA-Epigenetics QC pipeline)
 
 # Section 1: Methylation data quality check ----
 # Prep1: Probe Quality Check ----
-#library(minfi)
 
-## Load files ----
+library(minfi)
+
+## Load files ---- NOTE: takes approx 2 minutes to run
 ### Load RGset file ----
 load('/CCACE_Shared/EleanorC/CorticalEWAS/Data/Output/RGset.rda')
 ### Load Quan-norm file ----
 load('/CCACE_Shared/EleanorC/CorticalEWAS/Data/Output/Quan-norm.rda')
 
-## Add SNP information to the data ----
+## Add SNP information to the data NOTE takes approx 10 minutes to run ----
 objectWithSNPinfo <- addSnpInfo(object)
 
 ## Drop probes that contain either a SNP at the CpG interrogation or at the single nucleotide extension ----
@@ -361,19 +365,82 @@ rm(Match1, Match2, detP);
 failed <- detPSNPQCed >0.01
 rm(detPSNPQCed);
 
-## Get beta values ----
+## Get beta values ---- NOTE: takes approx 2 minutes
 beta <- getBeta(objectSNPQCed)
 
 ## Drop probes that failed quality control via the detection p-value in greater than 20% of samples ----
 failedCG02 <- rowMeans(failed) >0.2
 
 ## Get the list of non-variable CpG sites i.e. those where beta values for all samples are ≤20% or ≥80% ----
+#data                  0             1 0.129 FAL: 377417, TRU: 55958
 ProbeInvar <- (rowSums(beta<=0.2)==ncol(beta))|(rowSums(beta>=0.8)==ncol(beta))
 
 ## Mark probes with either all beta value <=0.2 or all beta value>=0.80 and generate a list of probes marked as invariant ----
 #This list will be included in the output file that you will send us
 ListInvarProbe <- rownames(beta)[which(ProbeInvar)]
 rm(ProbeInvar);
+
+length(ListInvarProbe)
+#[1] 55958
+
+################### IF THIS DOESN'T WORK, CONSIDER FOLLOWING ----
+
+samp <- read.table("Samples_to_remove_mort.txt")
+probe <- read.table("Probes_to_remove_mort.txt")
+
+### NOTE: At the moment, Methy rownames = id (101130760149_R04C02 etc) ###
+# add  ID to the meth data ...
+# Methy$id <- colnames(bnorm) #EITHER, this also works
+Methy$id = rownames(Methy)
+
+mk1 <- which(rownames(Methy) %in% samp[,1])
+mk2 <- which(colnames(Methy) %in% probe[,1]) # no probes that fail
+
+#Num_Samp <- nrow(mk1)
+
+## NOTE: Methy =  'data.frame': 3045 obs. of  485513 variables;
+## NOTE: Methy2 = 'data.frame':	3045 obs. of  485121 variables;
+## NOTE: Methy3 = 'data.frame':	2653 obs. of  3143 variables (nb. some NaNs spotted)
+## NOTE: Methy4 = 'data.frame':	3045 obs. of  482370 variables:
+
+
+Methy2 <- Methy[-mk1]  #,-mk2
+Methy3 <- Methy[-mk1,mk2]  #,-mk2
+Methy4 <- Methy[-mk2]
+
+## CHECK STRUCTURE ----
+str(Methy)
+str(Methy2)
+str(Methy3)
+str(Methy4)
+
+## CHECK NaNs ----
+library(dplyr)
+nan_check <- Methy3 %>% summarise_all(~ sum(is.na(.)))
+
+## IMPUTE NaNs or remove NaNs?
+## Option 1: REMOVE
+## NOTE: Methy_NaN_remove = 'data.frame':	140 obs. of  3143 variables:
+## NOTE: Methy_NaN_remove = 'data.frame': rownames = id (3998499072_R04C02), colnames = CpG (cg00011200)
+
+Methy_NaN_remove <- Methy3[complete.cases(Methy3), ]
+
+str(Methy_NaN_remove)
+
+## FOR IMMEDIATE CONSISTENCY WITH MICHELLLE CODE ----
+#Methy <- Methy2
+
+## FOR IMMEDIATE ATTEMPT TO RUN aka SMALLER no regressions ----
+#Methy <- Methy3
+Methy <- Methy_NaN_remove
+
+## NOTE: Takes ~ 1-2 minutes to run
+ProbeInvar<-(rowSums(bnorm<=0.2)==ncol(bnorm))|(rowSums(bnorm>=0.8)==ncol(bnorm))
+ListInvarProbe<-rownames(bnorm)[which(ProbeInvar)]
+
+ListInvarProbe
+
+################### IF THIS DOESN'T WORK, CONSIDER FOLLOWING ----
 
 ## Remove sex chromosome probes ----
 ### Mark probes on X and Y ----
@@ -386,6 +453,7 @@ keepIndex <- keepIndex&(!failedCG02)
 rm(failedCG02);
 
 ### Remove all probes with detected P-value >0.01 ----
+#str(beta) num [1:433375, 1:743]
 beta[failed] <- NA
 rm(failed);
 
@@ -393,8 +461,10 @@ rm(failed);
 betaQC <- beta[which(keepIndex),]
 rm(beta, keepIndex);
 
+## OSTENSIBLY 11,818 REMOVED, BUT N REMAINS AT 421557... HUGE
+
 # Prep2: Reformat beta value to match the format suggested above ----
-## Load quantile normalized methylation data ----
+## Load quantile normalized methylation data ---- NOTE: takes approx 1 minute to run
 Methy <- as.data.frame(t(betaQC))
 ## Add subject ID to the methylation data as the last column ----
 Methy$Subject <- colnames(betaQC)
@@ -413,11 +483,50 @@ load("/CCACE_Shared/EleanorC/CorticalEWAS/Data/Output/fast_svd.rda")
 
 ## Generate a variable with first four principal components of beta value ----
 PC_Beta <- as.data.frame(ss$v[,1:4])
+
+
+# NOTE: Error in `$<-.data.frame`(`*tmp*`, Subject, value = c("201004900088_R02C02",  :
+ # replacement has 743 rows, data has 792
+ # PC_Beta (n =792)
+ # colnames(b) = contains all of the 792 Subject IDs
+ # Methy$Subject = 743 Subject IDs
+
+ # We have to create a PC_Beta$Subject column based off colnames(b)
+ # Remember that ss, and by association, PC_Beta, is...
+ # save(beta, file="/CCACE_Shared/EleanorC/CorticalEWAS/Data/Output/Beta_Quantile.rda") #saves the normalized beta values to new file
+
+    # Generate PCA to control for unknown structure #
+    #library(corpcor)
+    #ss <- fast.svd(beta,tol=0) # this may take a while
+    # Potentially need to take the Methy$Subject and only select those from Beta_Quantile
+
+    load("/CCACE_Shared/EleanorC/CorticalEWAS/Data/Output/Beta_Quantile.rda")
+    str(data)
+
+ relevant_subjects <- colnames(b)
+
+ ## To get n = 743....
+ ## Note this takes approx... 20 minutes to run
+ #Error in fast.svd(beta, tol = 0) : could not find function "fast.svd"
+ library(corpcor)
+ ss <- fast.svd(beta,tol=0)
+
+
+ PC_Beta <- as.data.frame(ss$v[,1:4])
+
+ ## Load principal components of beta value ----
+load("/CCACE_Shared/EleanorC/CorticalEWAS/Data/Output/Methy.RData")
+
 ## Add subject ID to the component variable ----
 PC_Beta$Subject <- Methy$Subject
 
+ write.csv(PC_Beta, "/CCACE_Shared/EleanorC/CorticalEWAS/Data/Output/PC_Beta.csv")
+## SUCCESS
+
 ## Load estimated cell type proportion ----
 load("/CCACE_Shared/EleanorC/CorticalEWAS/Data/Output/cellcount.rda")
+
+cellcount <- data
 
 ## Generate principal components of cell count ----
 tmp <- prcomp(cellcount)
@@ -428,19 +537,234 @@ pc_cell <- as.data.frame(tmp$x[,1:2])
 ## Add row names ----
 pc_cell$Subject <- rownames(pc_cell)
 
+
+write.csv(pc_cell, "/CCACE_Shared/EleanorC/CorticalEWAS/Data/Output/pc_cell.csv")
+
+## save these
+
+### n.b 3041 obs
+
 ## ----------------------------# use imaging script
 
-## Read and merge covariates ----
-RawCov <- read.csv("./CorticalCovariates_ENIGMA.csv",header=T)
+#### N.b only n = 591 NOTE: check to see if higher n can be achieved
 
-str(RawCov)
+ID_linkage <- data.frame(Subject_meth = dat$Sentrix, Subject = dat$ID)
 
-### Assume the IID that is equal to the subject ID from cortical and methylation data ----
-RawCov <- RawCov[,-c(1)]
+#Cortex <- read.csv("./CorticalMeasure_ENIGMA.csv",header=T)
+
+covariates_examine2 <- read.csv("/CCACE_Shared/EleanorC/CorticalEWAS/Data/Input/Covariates.csv")
+thickness_examine <- read.csv("/CCACE_Shared/EleanorC/CorticalEWAS/Data/Imaging/CorticalMeasuresENIGMA_ThickAvg.csv") # contains ICV
+ICV <- thickness_examine %>% select("SubjID", "ICV")
+
+
+#################################### RUN FROM HERE
+
+# n = 636
+RawCov <- merge(ICV, covariates_examine2, by = "SubjID")
+
+names(RawCov)[names(RawCov) == "sex"] <- "Sex"
+names(RawCov)[names(RawCov) == "ageyrs"] <- "Age"
+names(RawCov)[names(RawCov) == "SubjID"] <- "Subject"
+
+RawCov$Sex <- ifelse(RawCov$sex == 1,1,2)
 
 ### Calculate age^2 and add to the last column of Raw_Cov
 RawCov$Age_Square <- (RawCov$Age)^2
 
+### Re-name the ID column for easier merge ----
+RawCov <- merge(RawCov, ID_linkage, by = "Subject")
+
+## need RO1CO1
+#names(RawCov)[1] <- c("Subject")
 
 ## Merge Methylation covariates in here
+names(PC_Beta)[names(PC_Beta) == "Subject"] <- "Subject_meth"
+names(pc_cell)[names(pc_cell) == "Subject"] <- "Subject_meth"
+
+
+### Merge all covariates into one dataset ----
+Cov <- merge(RawCov, PC_Beta, by ="Subject_meth",all=F)
+Cov <- merge(Cov,pc_cell,by ="Subject_meth",all=F)
+
+Cov$Sex <- as.numeric(Cov$Sex)
+
+str(Cov)
+
+write.csv(Cov, "/CCACE_Shared/EleanorC/CorticalEWAS/Data/Output/CorticalEWAS_covariates.csv")
+
+# n = 541
+####################################
+
+## NOTE: THIS APPROACH LEAVES US WITH AN N OF 502 VS 541
+## Read and merge covariates ---- # n = 591
+#RawCov <- read.csv("./CorticalCovariates_ENIGMA.csv",header=T)
+#str(RawCov)
+### Assume the IID that is equal to the subject ID from cortical and methylation data ----
+#RawCov <- RawCov[,-c(1)]
+### Calculate age^2 and add to the last column of Raw_Cov
+#RawCov$Age_Square <- (RawCov$Age)^2
+### Re-name the ID column for easier merge ----
+#RawCov <- merge(RawCov, ID_linkage, by = "Subject")
+## need RO1CO1
+#names(RawCov)[1] <- c("Subject")
+## Merge Methylation covariates in here
+#names(PC_Beta)[names(PC_Beta) == "Subject"] <- "Subject_meth"
+#names(pc_cell)[names(pc_cell) == "Subject"] <- "Subject_meth"
+#PC_Beta2 <- PC_Beta %>% rename(Subject_meth = Subject)
+#pc_cell2 <- pc_cell %>% rename(Subject_meth = Subject)
+### Merge all covariates into one dataset ----
+#Cov <- merge(RawCov, PC_Beta, by ="Subject_meth",all=F)
+#Cov <- merge(Cov,pc_cell,by ="Subject_meth",all=F)
+## Change Sex to appropriate dummy
+#Cov$Sex <- ifelse(Cov$Sex == 'male',1,2)
+#str(Cov)
+ #Cov$ICV <- as.numeric(Cov$ICV)
+ #Cov$Sex <- as.numeric(Cov$Sex)
+ #str(Cov)
+ ### NOTE: IDEA 2 REMOVE ID and any other misc variables from Cov that could be contributing to the factor issue ----
+#Cov <- Cov %>% select(-c("GeneticID", "DiseaseType","PID",  "MID"    ,        "DiseaseType"   ,
+ #"AffectionStatus"    ,   "Affectionstatus2" , "ScannerSite" ))
+####################################
+
+
+Cov <- read.csv("/CCACE_Shared/EleanorC/CorticalEWAS/Data/Output/CorticalEWAS_covariates.csv")
+
+### Save column names of covariates for EWAS with cortical measures
+Cov <- Cov %>% select(-c("X"))
+
+ Cov$ICV <- as.numeric(Cov$ICV)
+ Cov$Sex <- as.numeric(Cov$Sex)
+ str(Cov)
+
+Cov2 <- Cov %>% select(-c("Subject", "Subject_meth"))
+CovName <- colnames(Cov2)
+
+
+## Generate files with complete data across all methylation, cortical measures, and covariates with matched individuals ----
+# Combine covariates and surface data
+
+CorticalMeasure <- read.csv("/CCACE_Shared/EleanorC/CorticalEWAS/Data/Input/CorticalMeasure_ENIGMA.csv",header=T)
+str(CorticalMeasure)
+
+# Data (n = 541)
+Data <- merge(Cov,CorticalMeasure, by="Subject", all=F)
+
+# Match methylation data with combined covariates and brain data
+Match <- match(Methy$Subject,Data$Subject_meth)
+
+# Generate covariates with matched individual
+#Cov <- Data[Match[!is.na(Match)],2:(length(CovName)+1)]
+Cov <- Cov %>% select(-c("Subject", "Subject_meth"))
+
+# Generate brain data with matched individual
+#CorticalMeasure2 <- Data[Match[!is.na(Match)],-c(1:(length(CovName)+1))]
+#CorticalMeasure2 <- Data[Match[!is.na(Match)]]
+CorticalMeasure <- Data %>% select(-c("Subject", "Subject_meth","ICV","Sex","Age","Age_Square","V1","V2","V3","V4","PC1","PC2"))
+
+#Generate methylation data with matched individual
+Methy <- Methy[!is.na(Match),-c(1)]
+str(Methy)
+#'data.frame':	541 obs. of  421557 variables:
+
+### Generate a dataframe to save age information for further analysis
+AgeInfo <- data.frame(min(Cov$Age),max(Cov$Age),mean(Cov$Age))
+names(AgeInfo) <- c("MinAge","MaxAge","MeanAge")
+
+## EWAS with cortical measures ----
+# Get the numbers of methylation probes, cortical measures and covariates
+Num_Methy <- ncol(Methy)
+Num_Cov <- ncol(Cov)
+Num_Cortical <- ncol(CorticalMeasure)
+####################################
+
+
+## CHECK STRUCTURE ----
+str(Cov) # NOTE: 'data.frame':	499 obs. of  11 variables: (17 obs) vs 541 obs of 10 variables
+str(CorticalMeasure) #NOTE: 'data.frame':	499 obs. of  69 variables: (17 obs) vs 541 obs of 18 variables
+str(Methy) # NOTE: 'data.frame':	499 obs. of  485120 variables: (17 obs. of  3143 ) vs 541 obs. of  421557 variables:
+
+##################################################################
+##Association analysis: the following section should be run by ALL cohorts
+##################################################################
+
+######## EWAS with cortical measures: whole sample, controlling for ICV ##########
+
+
+## Prepare the output files for the cortical EWAS----
+## NOTE: Here we are setting up space for our findings, with NA values
+
+Origin_Beta <- matrix(data=NA,nrow=Num_Methy,ncol=Num_Cortical,byrow=F,dimnames=NULL)
+colnames(Origin_Beta) <- colnames(CorticalMeasure)
+rownames(Origin_Beta) <- colnames(Methy)
+
+Origin_SE <- matrix(data=NA,nrow=Num_Methy,ncol=Num_Cortical,byrow=F,dimnames=NULL)
+colnames(Origin_SE) <- colnames(CorticalMeasure)
+rownames(Origin_SE) <- colnames(Methy)
+
+Origin_P <- matrix(data=NA,nrow=Num_Methy,ncol=Num_Cortical,byrow=F,dimnames=NULL)
+colnames(Origin_P) <- colnames(CorticalMeasure)
+rownames(Origin_P) <- colnames(Methy)
+
+Origin_N <- matrix(data=NA,nrow=Num_Methy,ncol=Num_Cortical,byrow=F,dimnames=NULL)
+colnames(Origin_N) <- colnames(CorticalMeasure)
+rownames(Origin_N) <- colnames(Methy)
+
+#save(Origin_Beta, file = "/CCACE_Shared/EleanorC/CorticalEWAS/Data/Output/Origin_Beta.csv")
+
+## linear regression
+## NOTE: The code here is part of a for loop that's used for performing linear regression analysis between DNA methylation data (Methy) and cortical brain volume data (CorticalMeasure) for each combination of cortical brain volume and DNA methylation variable. This loop is structured as follows:
+
+## Here's what the loop is doing:
+
+##    (1). The outer loop iterates over each subcortical brain volume (indexed by i), and the inner loop iterates over each DNA methylation variable (indexed by j).
+
+##    (2) For each combination of subcortical brain volume (i) and DNA methylation variable (j), it performs a linear regression analysis using the lm function.
+##          The model is specified ## as Methy[, i] ~ Covar + CorticalMeasure[, j],
+##          (a) where CorticalMeasure[, j] represents the cortical brain volume,
+##          (b) Covar represents covariates,
+##          (c) and Methy[, i] represents the DNA methylation variable.
+
+##    The results of the linear regression analysis (including beta coefficients, standard errors, and p-values) are stored in the Out object.
+
+ ##   The loop updates the Origin_Beta, Origin_SE, and Origin_P matrices with the
+ ##     (a) beta coefficient,
+ ##     (b) standard error,
+ ##     (c) and p-value from the regression analysis, respectively.
+ ## These matrices store the results for each combination of cortical brain volume and DNA methylation variable.
+
+ ## NOTE:   THIS TAKES APPROX 10 MINUTES TO RUN
+#warning(paste("Warning: This code may take approx 10 minutes to run"))
+
+ # Start measuring time
+start_time <- Sys.time()
+
+Covar <- matrix(unlist(Cov), ncol=ncol(Cov), byrow=F)
+
+for (i in 1:Num_Methy) {
+  for (j in 1:Num_Cortical) {
+    Out <- summary(lm(Methy[,i] ~ Covar + CorticalMeasure[,j]))
+    Origin_Beta[i,j] <- Out$coefficients[nrow(Out$coefficients),1]
+    Origin_SE[i,j] <- Out$coefficients[nrow(Out$coefficients),2]
+    Origin_P[i,j] <- Out$coefficients[nrow(Out$coefficients),4]
+    Origin_N[i,j] <- Out$df[1]+Out$df[2]
+  }
+}
+
+# Stop measuring time
+end_time <- Sys.time()
+
+# Calculate the elapsed time
+elapsed_time <- end_time - start_time
+
+# Save the execution time to a log file
+log_file <- "execution_log.txt"
+cat("Linear regression execution time:", elapsed_time, "seconds", file = log_file)
+
+# Print a message to the console
+cat("Linear regression completed in", elapsed_time, "seconds. Log saved to", log_file, "\n")
+
+
+###########################################################################
+###########################################################################
+
 
