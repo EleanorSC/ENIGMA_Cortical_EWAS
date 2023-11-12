@@ -1,0 +1,246 @@
+---
+title: "ENIGMA Cortical EWAS DNAm QC"
+author: "Eleanor Conole"
+date: "`r format(Sys.time(), '%d %B %Y')`"
+output:
+  prettydoc::html_pretty:
+    theme: hpstr
+    highlight: github
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(dpi=300,fig.width=7)
+```
+
+## Array design
+
+The 450k array has a very unusual design, which to some extent impact analysis. It is really a mixture of a two-color array and two one-color arrays. There are two main types of probes (type I and type II) and the probe design affects the signal distribution of the probe.
+
+The raw data format for the 450k array is known as IDAT. Because the array is measured in two different colors, there are two files for each sample, typically with the extention _Grn.idat and _Red.idat. 
+
+Illumina’s software suite for analysis of this array is called `GenomeStudio`. It is not unusual for practitioners to only have access to processed data from GenomeStudio instead of the raw IDAT files, but note that there is information in the IDAT files which are beneficial to analysis (see minfi documentation)^[https://kasperdanielhansen.github.io/genbioconductor/html/minfi.html].
+
+### Note on IDATs
+
+In the context of DNA methylation analysis, IDAT files are associated with the Infinium DNA methylation microarray technology developed by Illumina. The term "IDAT" stands for "Intensity Data." These files contain the raw intensity data generated during the scanning of Infinium microarrays.
+
+The Infinium DNA methylation microarray technology is widely used for profiling DNA methylation patterns at a single-nucleotide resolution. The arrays use two chemistries, Infinium I and Infinium II, to interrogate DNA methylation at specific CpG sites across the genome. Each array includes probes that target methylated and unmethylated states of CpG dinucleotides.
+
+The IDAT files store the fluorescence intensity values for each probe on the microarray. There are two types of IDAT files associated with Infinium microarrays: one for the methylated channel (M) and one for the unmethylated channel (U). So, for each sample analyzed on an Infinium microarray, you typically have two corresponding IDAT files: one ending with "_M" and one ending with "_U."
+
+Researchers use these IDAT files as input for bioinformatics tools and software packages designed for the analysis of DNA methylation data. The intensity values are processed to derive methylation values, often represented as beta values, which indicate the proportion of DNA methylation at each CpG site. This information can then be used for downstream analyses and interpretation of DNA methylation patterns in the studied samples.
+
+The data used to generate these plots is taken from `IDATS` in `"/CCACE_Shared/EleanorC/CorticalEWAS/Data"`
+
+### Load required packages
+
+```{r packages installation}
+
+#############################
+### DNAm idats from LBC36 ###
+#################''##########
+
+install.packages("tidyverse")
+library(tidyverse)
+
+if (!require("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+
+BiocManager::install("minfi")
+
+
+#To install the FlowSorted.Blood.450k package, which is necessary when using the function of “estimateCellCounts”, enter:
+
+if (!require("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+
+BiocManager::install("FlowSorted.Blood.450k")
+
+#Highlighted portions of the instructions require you to make changes so that the commands work on your system and data.
+
+##open R and copy the lines below
+require(minfi)
+require(minfiData)
+
+library(RColorBrewer)
+library(minfi)
+library(limma)
+library(FlowSorted.Blood.450k)
+
+```
+## Set your local working directory
+
+```{r setwd}
+
+setwd("/CCACE_Shared/EleanorC/CorticalEWAS/Data")  # replace with your local working directory
+
+```
+
+## Reading in DNA methylation data
+
+Here you will specify your local directory, which contains both raw IDAT files and the sample sheets (i.e., a .csv file, which includes the path for each sample’s IDAT file). 
+
+The following scripts expect the sample sheet to include column names as shown in the figure below, where the header information (all lines up to [Data]) could be omitted (Variables such as sex, age, site and disease status can also be included as extra columns):
+
+```{r, warning=FALSE, message=FALSE}
+#################################
+### Reading the methylation data ####
+#################################
+
+## Creating the initial object of the minfi analysis that contains the raw intensities in the green and red channels
+# Set your data directory containing IDAT files
+idat_dirs <- c("/CCACE_Shared/EleanorC/CorticalEWAS/Data/idats")
+
+#specify your local directory, which contains both raw IDAT files and the sample sheets (i.e., a .csv file, which includes the path for each sample’s IDAT file). The following scripts expect the sample sheet to include column names as shown in the figure below, where the header information (all lines up to [Data]) could be omitted (Variables such as sex, age, site and disease status can also be included as extra columns):
+
+#####################################
+### DNAm idats from LBC36 CREATED ###
+#####################################
+
+## Try creating RGset
+#library(minfi)
+
+targets=read.metharray.sheet(idat_dirs, "Deary Meth450K_plates 9_21_7-SampleSheet1220413.csv", recursive=T) #loads the corresponding .csv sample sheet file
+
+
+targets=rbind(targets, read.metharray.sheet(idat_dirs, "E11970_Meth450K_plates6-18-10_230413.csv", recursive=T))
+targets=rbind(targets, read.metharray.sheet(idat_dirs, "E11970_Meth450K_plates15_14_19_SampleSheet220413.csv", recursive=T))
+targets=rbind(targets, read.metharray.sheet(idat_dirs, "E11970_Meth450K_plates16-08-12_220413.csv", recursive=T))
+targets=rbind(targets, read.metharray.sheet(idat_dirs, "E11970_Meth450K_plates20_5_SampleSheet_220413.csv", recursive=T))
+targets=rbind(targets, read.metharray.sheet(idat_dirs, "E11970_Meth450K_plates23_1_4_Angie_220413.csv", recursive=T))
+targets=rbind(targets, read.metharray.sheet(idat_dirs, "E11970_Meth450K_plates25-26-13_220413.csv", recursive=T))
+targets=rbind(targets, read.metharray.sheet(idat_dirs, "E11970_Meth450K_plates_2-11-22_220413.csv", recursive=T))
+targets=rbind(targets, read.metharray.sheet(idat_dirs, "E11970_Meth450K_plates_17-3-24__220413.csv", recursive=T))
+
+```
+
+### Run some checks
+
+```{r, warning=FALSE, message=FALSE}
+## 1. check for any duplicates in basenames
+
+#targets <- targets[!duplicated(targets$Basename)]
+targets <- targets %>% filter(Basename != "character(0)")
+
+targets <- targets %>% filter(grepl("_W2", Sample_Name))
+
+#### targets
+## NOTE: later need sex variable included, so potentially use the targets_sex which contains cell types + sex info
+#target_sex <- read.csv("targets_W2_sex.csv")
+
+targets <- read.csv("new_targets_W2.csv")
+
+RGset <- read.metharray.exp(
+  base = idat_dirs,
+  targets = targets,
+  verbose = T
+)
+```
+
+
+### Save the RGset
+
+Note that this will take around 20 minutes to run.
+
+The `RGset` is a large object file; it is a class called `RGChannelSet` which represents two color data with a green and a red channel
+
+```{r, warning=FALSE, message=FALSE}
+##NOTE this takes 20 minutes to run
+save(RGset,file="/CCACE_Shared/EleanorC/CorticalEWAS/Data/Output/RGset.rda") #saves the object
+```
+
+
+### Create QC plots from the RGset
+
+```{r, warning=FALSE, message=FALSE}
+### If the initial object with raw methylation data had already been created as above, it can be directly loaded with the command below (if the file hasn’t been generated yet or if you don’t know what it means, please follow the procedure above):
+
+# If you accidentially kill the session
+load("/CCACE_Shared/EleanorC/CorticalEWAS/Data/Output/RGset.rda")
+
+### Producing Quality Control plots
+pd <- pData(RGset) #extracting the sample information (phenotype data) from the sample sheet
+
+if (!require("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+
+BiocManager::install("IlluminaHumanMethylation450kmanifest")
+
+## NOTE: This took 10 minutes to run
+```
+
+
+### Create QC report pdf
+
+These plots are useful for identifying samples with data quality. They display summaries of signals from the array (e.g. density plots) as well as the values of several types of control probes included on the array. A good rule of thumb is to be wary of samples whose behaviour deviates from that of others in the same or similar experiments. 
+
+In case outliers are detected, their individuals’ Sample.ID should registered into the file ‘Outliers’, which will be used to remove outliers in a later step.
+
+The code below produces a PDF QC report of common plots, colored by groups of samples. Check that the highlighted variables correspond to column names in your sample sheet, as illustrated above. In this example, the column named ‘Experimenter’ corresponds to the different waves by which our DNA samples were processed and hybridized.
+
+```{r QC report pdf, warning=FALSE, message=FALSE}
+
+qcReport(RGset, sampNames = pd$Sentrix, sampGroups=pd$set, pdf = "/CCACE_Shared/EleanorC/CorticalEWAS/Data/Output/qcReport.pdf") # 
+
+#qcReport(RGset, sampNames = NULL, sampGroups=pd$set, pdf = "/CCACE_Shared/EleanorC/CorticalEWAS/Data/Output/qcReport_abrev.pdf", maxSamplesPerPage = 24)
+
+```
+
+
+## QC assessment
+
+```{r, warning=FALSE, message=FALSE}
+##################################
+### Quality assessment of methylation data ####
+##################################
+
+object=preprocessIllumina(RGset) #We prefer preprocessIllumina because it considers the background correction as well as normalization to internal controls as described in the Illumina documentation. This will minimize the amount of variation between arrays.
+
+object<-mapToGenome(object) #assign probes with its physical location on the genome
+object=ratioConvert(object, type="Illumina") #convert raw methylation data
+beta <- getBeta(object) #get the beta value for each probe
+dat <- object #rename ‘object’ to ‘dat’
+pd=pData(dat) #get phenotypes of methylation data
+
+```
+
+
+
+### Write output files
+
+```{r}
+#write.csv(pca_component, file=here("results", "tables", "singlemetric_gfactors", paste(metric, #"pca_gfactor.csv", sep="_")), row.names = F)
+#
+## Run this section at the very end
+#rmarkdown::render(
+#  input = here("scripts", str_c(subdir_name, ".Rmd")),
+#  output_file = here("results", "reports", paste(subdir_name, ".html", sep=""))
+#)
+
+# Run this section at the very end
+doc = system.file("rmarkdown", "templates", "html_pretty_vignette",
+                  "skeleton", "skeleton.Rmd", package = "prettydoc")
+rmarkdown::render(doc, prettydoc::html_pretty(), output_dir = tempdir())
+
+
+
+```
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Cmd+Shift+K* to preview the HTML file). 
+
+The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
+
+### R and package versions used to generate these figures
+
+It's a a good idea to end with some information about the packages you
+used, their versions, and the version of R that you used.
+
+The `sessionInfo()` function provides this information. Even better is
+to install the [devtools](https://github.com/hadley/devtools) package
+and use `devtools::session_info()`.
+
+```{r sessionInfo, include=TRUE, echo=TRUE, results='markup'}
+sessionInfo()
+```
+
+
