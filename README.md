@@ -157,18 +157,12 @@ Pipeline for conducting epigenome-wide association studies (EWAS) of cortical br
 
 ───────────────────────────────────────────────────────────────
 ```
-Key design principles:
-• Strict QC at both sample and probe level
-• Dimensional covariate control (DNAm PCs + cell PCs)
-• Harmonised imaging phenotypes across cohorts
-• Cohort-level EWAS → meta-analysis (not pooled data)
-• Replication + triangulation for robustness
 
-```
 
 ### 1. DNAm Quality Control
 
 Script:  
+
 ```Scripts/QC_and_reformat_methylation_data.R```
 
 Steps:
