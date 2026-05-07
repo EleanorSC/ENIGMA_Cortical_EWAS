@@ -50,7 +50,7 @@ The pipeline supports:
 ### 1. DNAm Quality Control
 
 Script:  
-```textScripts/QC_and_reformat_methylation_data.R```
+```Scripts/QC_and_reformat_methylation_data.R```
 
 Steps:
 - Remove probes with SNPs (CpG, SBE, probe-level)
