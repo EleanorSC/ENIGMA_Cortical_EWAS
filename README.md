@@ -5,22 +5,14 @@ Pipeline for conducting epigenome-wide association studies (EWAS) of cortical br
 ---
 
 ## Overview
-```
-DNAm → QC → PCs
-           ↓
-MRI → ROI extraction → harmonisation
-           ↓
-        EWAS
-           ↓
-   Meta-analysis / downstream
-```
+
 ```
 ┌──────────────────────────────────────────────────────────────┐
 │                    DNA METHYLATION (DNAm)                    │
 └──────────────────────────────────────────────────────────────┘
                 │
                 ▼
-      IDAT import (minfi::read.metharray.exp)
+            IDAT import 
                 │
                 ▼
       ┌──────────────────────────────┐
@@ -164,6 +156,7 @@ MRI → ROI extraction → harmonisation
 
 
 ───────────────────────────────────────────────────────────────
+```
 Key design principles:
 • Strict QC at both sample and probe level
 • Dimensional covariate control (DNAm PCs + cell PCs)
