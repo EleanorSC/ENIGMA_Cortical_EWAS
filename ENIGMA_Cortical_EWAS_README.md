@@ -1,22 +1,6 @@
 # ENIGMA_Cortical_EWAS
 
-Pipeline for conducting epigenome-wide association studies (EWAS) of cortical brain structure within the ENIGMA-Epigenetics Working Group.
-
----
-
-## Overview
-
-This repository provides a harmonised workflow for analysing associations between DNA methylation (DNAm) and cortical morphology derived from MRI.
-
-Primary outcomes:
-- Cortical Thickness (CT)
-- Cortical Surface Area (SA)
-
-The pipeline supports:
-- Cohort-level EWAS
-- Cross-cohort harmonisation
-- Meta-analysis preparation
-- Downstream biological interpretation
+Pipeline for conducting epigenome-wide association studies (EWAS) of cortical brain structure.
 
 ---
 
@@ -46,15 +30,27 @@ ENIGMA_Cortical_EWAS/
 │
 ├── LICENSE
 └── README.md
-```text
+```
 ---
 
-## Pipeline Overview
+## Overview
+
+This repository provides a harmonised workflow for analysing associations between DNA methylation (DNAm) and cortical morphology derived from MRI.
+
+Primary outcomes:
+- Cortical Thickness (CT)
+- Cortical Surface Area (SA)
+
+The pipeline supports:
+- Cohort-level EWAS
+- Cross-cohort harmonisation
+- Meta-analysis preparation
+- Downstream biological interpretation
 
 ### 1. DNAm Quality Control
 
 Script:  
-Scripts/QC_and_reformat_methylation_data.R
+```textScripts/QC_and_reformat_methylation_data.R```
 
 Steps:
 - Remove probes with SNPs (CpG, SBE, probe-level)
@@ -75,7 +71,7 @@ Outputs:
 ### 2. Cortical Measure Extraction
 
 Script:  
-Scripts/get_CT_and_SA_from_FreeSurfer.sh
+```textScripts/get_CT_and_SA_from_FreeSurfer.sh```
 
 - Extract cortical thickness and surface area from FreeSurfer outputs
 - Generate ROI-level cortical measures
@@ -85,7 +81,7 @@ Scripts/get_CT_and_SA_from_FreeSurfer.sh
 ### 3. Cortical Data Preparation
 
 Script:  
-Scripts/prep_cortical_measures.R
+```textScripts/prep_cortical_measures.R```
 
 - Format cortical measures
 - Harmonise ROI naming (ENIGMA standards)
@@ -95,7 +91,6 @@ Scripts/prep_cortical_measures.R
 
 ### 4. Covariate Preparation
 
-Covariates typically include:
 - Age and Age²  
 - Sex  
 - Intracranial volume (ICV)  
@@ -108,7 +103,7 @@ Covariates typically include:
 ### 5. EWAS Analysis
 
 Primary script:  
-Scripts/perform_EWAS.R
+```textScripts/perform_EWAS.R```
 
 Core model:
 DNAm ~ covariates + cortical phenotype
@@ -129,7 +124,7 @@ Outputs:
 ### 6. Association & QC Checks
 
 Scripts:
-- Scripts/Association_analysis.R
+- ```textScripts/Association_analysis.R```
 - Scripts/Remove_inflation_and_bias.R
 
 Includes:
