@@ -21,7 +21,7 @@ The pipeline supports:
 ---
 
 ## Repository Structure
-
+```text
 ENIGMA_Cortical_EWAS/
 │
 ├── Code/
@@ -46,7 +46,7 @@ ENIGMA_Cortical_EWAS/
 │
 ├── LICENSE
 └── README.md
-
+```text
 ---
 
 ## Pipeline Overview
