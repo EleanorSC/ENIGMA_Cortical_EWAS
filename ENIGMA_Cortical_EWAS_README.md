@@ -34,7 +34,15 @@ ENIGMA_Cortical_EWAS/
 ---
 
 ## Overview
-
+```
+DNAm → QC → PCs
+           ↓
+MRI → ROI extraction → harmonisation
+           ↓
+        EWAS
+           ↓
+   Meta-analysis / downstream
+```
 This repository provides a harmonised workflow for analysing associations between DNA methylation (DNAm) and cortical morphology derived from MRI.
 
 Primary outcomes:
@@ -71,7 +79,7 @@ Outputs:
 ### 2. Cortical Measure Extraction
 
 Script:  
-```textScripts/get_CT_and_SA_from_FreeSurfer.sh```
+```Scripts/get_CT_and_SA_from_FreeSurfer.sh```
 
 - Extract cortical thickness and surface area from FreeSurfer outputs
 - Generate ROI-level cortical measures
@@ -81,7 +89,7 @@ Script:
 ### 3. Cortical Data Preparation
 
 Script:  
-```textScripts/prep_cortical_measures.R```
+```Scripts/prep_cortical_measures.R```
 
 - Format cortical measures
 - Harmonise ROI naming (ENIGMA standards)
@@ -103,7 +111,7 @@ Script:
 ### 5. EWAS Analysis
 
 Primary script:  
-```textScripts/perform_EWAS.R```
+```Scripts/perform_EWAS.R```
 
 Core model:
 DNAm ~ covariates + cortical phenotype
@@ -124,8 +132,8 @@ Outputs:
 ### 6. Association & QC Checks
 
 Scripts:
-- ```textScripts/Association_analysis.R```
-- Scripts/Remove_inflation_and_bias.R
+- ```Scripts/Association_analysis.R```
+- ```Scripts/Remove_inflation_and_bias.R```
 
 Includes:
 - Post-EWAS quality control
@@ -137,8 +145,8 @@ Includes:
 ### 7. Debugging Utilities
 
 Scripts:
-- Scripts/Debugging_script.R
-- Scripts/Debuggin_cortical_measures.R
+- ```Scripts/Debugging_script.R```
+- ```Scripts/Debuggin_cortical_measures.R```
 
 Used for:
 - Data alignment issues
@@ -150,7 +158,7 @@ Used for:
 ### 8. Visualisation
 
 Script:
-Code/Cortical_ROI/Create ENIGMA2023_CortexROI_plots.R
+```Code/Cortical_ROI/Create ENIGMA2023_CortexROI_plots.R```
 
 - Generates cortical maps
 - Visualises EWAS results across ROIs
@@ -158,7 +166,6 @@ Code/Cortical_ROI/Create ENIGMA2023_CortexROI_plots.R
 ---
 
 ## Input Requirements
-
 Each cohort must provide:
 
 ### DNAm Data
@@ -170,7 +177,7 @@ Each cohort must provide:
 
 ### Covariates
 - Age, Sex
-- ICV (optional but recommended)
+- ICV 
 - Technical covariates
 - DNAm and cell PCs
 
@@ -179,13 +186,13 @@ Each cohort must provide:
 ## Outputs
 
 Each EWAS run produces .RData files containing:
-- Origin_Beta
-- Origin_SE
-- Origin_P
-- Origin_N
-- Model specification
-- Age summary statistics
-- Invariant probe list
+- ```Origin_Beta```
+- ```Origin_SE```
+- ```Origin_P```
+- ```Origin_N```
+- ```Model specification```
+- ```Age summary statistics```
+- ```Invariant probe list```
 
 ---
 
@@ -195,15 +202,6 @@ Each EWAS run produces .RData files containing:
 - Linear regression is performed at each CpG × phenotype pair
 - Multiple testing correction is applied downstream (meta-analysis stage)
 - Stratified analyses are exploratory
-
----
-
-## Best Practices
-
-- Ensure strict ID matching across all datasets before analysis
-- Perform QC locally before sharing outputs
-- Share only summary statistics (no individual-level data)
-- Inspect covariate distributions and outliers prior to EWAS
 
 ---
 
@@ -217,12 +215,3 @@ Each EWAS run produces .RData files containing:
 
 ---
 
-## License
-
-See LICENSE file.
-
----
-
-## Contact
-
-Developed as part of the ENIGMA-Epigenetics Working Group.
