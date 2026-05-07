@@ -1,6 +1,6 @@
 # ENIGMA_Cortical_EWAS
 
-Pipeline for conducting epigenome-wide association studies (EWAS) of cortical brain structure.
+Pipeline for conducting epigenome-wide association studies (EWAS) of cortical brain structure. This repository provides a harmonised workflow for analysing associations between DNA methylation (DNAm) and cortical morphology derived from MRI.
 
 ---
 
@@ -43,17 +43,6 @@ MRI → ROI extraction → harmonisation
            ↓
    Meta-analysis / downstream
 ```
-This repository provides a harmonised workflow for analysing associations between DNA methylation (DNAm) and cortical morphology derived from MRI.
-
-Primary outcomes:
-- Cortical Thickness (CT)
-- Cortical Surface Area (SA)
-
-The pipeline supports:
-- Cohort-level EWAS
-- Cross-cohort harmonisation
-- Meta-analysis preparation
-- Downstream biological interpretation
 
 ### 1. DNAm Quality Control
 
