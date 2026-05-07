@@ -14,6 +14,164 @@ MRI → ROI extraction → harmonisation
            ↓
    Meta-analysis / downstream
 ```
+```
+┌──────────────────────────────────────────────────────────────┐
+│                    DNA METHYLATION (DNAm)                    │
+└──────────────────────────────────────────────────────────────┘
+                │
+                ▼
+      IDAT import (minfi::read.metharray.exp)
+                │
+                ▼
+      ┌──────────────────────────────┐
+      │        SAMPLE-LEVEL QC       │
+      │  • qcReport (intensity)      │
+      │  • sex check (predicted vs)  │
+      │  • MDS / PCA outliers        │
+      │  • remove controls/outliers  │
+      └──────────────────────────────┘
+                │
+                ▼
+      ┌──────────────────────────────┐
+      │        PROBE-LEVEL QC        │
+      │  • detection P filtering     │
+      │  • SNP removal (CpG/SBE)     │
+      │  • invariant probes          │
+      │  • remove chrX / chrY        │
+      └──────────────────────────────┘
+                │
+                ▼
+      Quantile normalisation (preprocessQuantile)
+                │
+                ▼
+      ┌──────────────────────────────┐
+      │    FEATURE EXTRACTION        │
+      │  • Beta matrix (CpGs × N)    │
+      │  • DNAm PCs (SVD)            │
+      │  • Cell-type proportions     │
+      └──────────────────────────────┘
+                │
+                ▼
+      OUTPUT: QCed DNAm + covariates
+
+
+
+┌──────────────────────────────────────────────────────────────┐
+│                        MRI (STRUCTURAL)                      │
+└──────────────────────────────────────────────────────────────┘
+                │
+                ▼
+      FreeSurfer preprocessing
+                │
+                ▼
+      ┌──────────────────────────────┐
+      │      ROI EXTRACTION          │
+      │  • Cortical thickness (CT)   │
+      │  • Surface area (SA)         │
+      └──────────────────────────────┘
+                │
+                ▼
+      ┌──────────────────────────────┐
+      │      MRI QC & CLEANING       │
+      │  • visual QC                 │
+      │  • remove segmentation fails │
+      └──────────────────────────────┘
+                │
+                ▼
+      ┌──────────────────────────────┐
+      │      HARMONISATION           │
+      │  • site/scanner (ComBat)     │
+      │  • adjust: age, sex, ICV     │
+      └──────────────────────────────┘
+                │
+                ▼
+      OUTPUT: Harmonised CT / SA ROIs
+
+
+
+┌──────────────────────────────────────────────────────────────┐
+│                    DATA INTEGRATION                          │
+└──────────────────────────────────────────────────────────────┘
+                │
+                ▼
+      ┌──────────────────────────────┐
+      │    ID MATCHING / MERGING     │
+      │  • DNAm ↔ MRI ↔ covariates   │
+      │  • retain complete cases     │
+      └──────────────────────────────┘
+                │
+                ▼
+      FINAL ANALYSIS MATRICES:
+      • DNAm (CpGs)
+      • Cortical phenotypes (CT/SA)
+      • Covariates (age, sex, ICV, PCs, cell counts)
+
+
+
+┌──────────────────────────────────────────────────────────────┐
+│                         EWAS                                 │
+└──────────────────────────────────────────────────────────────┘
+                │
+                ▼
+      Model: DNAm ~ Cortical ROI + covariates
+                │
+                ▼
+      Loop over:
+      • CpGs (~500k–800k)
+      • ROIs (global + regional)
+                │
+                ▼
+      OUTPUT (per cohort):
+      • β (effect sizes)
+      • SE
+      • P-values
+      • N
+
+
+
+┌──────────────────────────────────────────────────────────────┐
+│                    META-ANALYSIS (ENIGMA)                    │
+└──────────────────────────────────────────────────────────────┘
+                │
+                ▼
+      ┌──────────────────────────────┐
+      │        QCEWAS                │
+      │  • inflation correction      │
+      │  • harmonise CpGs/models     │
+      └──────────────────────────────┘
+                │
+                ▼
+      Fixed-effects meta-analysis (METAL)
+                │
+                ▼
+      • Discovery cohorts
+      • Independent replication
+      • Combined analysis
+
+
+
+┌──────────────────────────────────────────────────────────────┐
+│                    DOWNSTREAM ANALYSES                       │
+└──────────────────────────────────────────────────────────────┘
+                │
+                ▼
+      • Functional annotation (GREAT, eFORGE)
+      • Genomic enrichment (pathways, chromatin)
+      • PheWAS (cross-trait associations)
+      • Mendelian randomisation (meQTL → DNAm → brain)
+      • Sensitivity analyses (cell counts, lifestyle)
+
+
+
+───────────────────────────────────────────────────────────────
+Key design principles:
+• Strict QC at both sample and probe level
+• Dimensional covariate control (DNAm PCs + cell PCs)
+• Harmonised imaging phenotypes across cohorts
+• Cohort-level EWAS → meta-analysis (not pooled data)
+• Replication + triangulation for robustness
+
+```
 
 ### 1. DNAm Quality Control
 
